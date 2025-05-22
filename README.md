@@ -88,7 +88,5 @@ This project showcases how mathematical foundations like **entropy** and **mutua
 
 ## 👤 Author
 
-**Nikhitha Nagalla**  
-Mathematical Foundations of Data Science  
-12/01/2024
+**Nikhitha Nagalla** 
 
