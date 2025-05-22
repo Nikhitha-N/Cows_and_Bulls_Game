@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulls and Cows Game</title>
+    {% load static %} <!-- Django template tag to load static files -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'styles.css' %}"> <!-- Link to external CSS -->
+    <script>
+        async function submitGuess(action = "guess") {
+            // Get references to the input field, output div, and history table
+            const guessInput = document.getElementById("guess");
+            const output = document.getElementById("output");
+            const historyTable = document.getElementById("history-table");
+            let guess = "";
+
+            if (action === "guess") {
+                guess = guessInput.value.trim(); // Trim whitespace from input
+
+                // Input validation: Check for 4 digits and ensure they are unique
+                if (guess.length !== 4 || !/^\d+$/.test(guess)) {
+                    output.innerHTML = `<span class="error">Invalid input! Please enter exactly 4 numeric digits.</span>`;
+                    return;
+                }
+                const uniqueDigits = new Set(guess);
+                if (uniqueDigits.size !== 4) {
+                    output.innerHTML = `<span class="error">Invalid input! All digits must be unique.</span>`;
+                    return;
+                }
+            }
+
+            // Send an HTTP POST request to the server with the action and guess
+            const response = await fetch("", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "X-CSRFToken": "{{ csrf_token }}" // Include CSRF token for security
+                },
+                body: new URLSearchParams({ action, guess }) // Formulate request body
+            });
+
+            const data = await response.json(); // Parse the JSON response
+
+            // Handle the "replay" action: Reset game state and UI
+            if (action === "replay") {
+                output.innerHTML = `<span class="success">${data.message}</span>`;
+                historyTable.innerHTML = `
+                    <tr>
+                        <th>Guess</th>
+                        <th>Bulls</th>
+                        <th>Cows</th>
+                        <th>Entropy</th>
+                        <th>Mutual Info</th>
+                    </tr>
+                `;
+                guessInput.value = ""; // Clear the input field
+                return;
+            }
+
+            // Handle the "exit" action: Display exit message and hide input/buttons
+            if (action === "exit") {
+                output.innerHTML = `<span class="success">${data.message}</span>`;
+                historyTable.innerHTML = ""; // Clear history
+                guessInput.style.display = "none"; // Hide guess input field
+                document.querySelectorAll(".game-form button").forEach(btn => btn.style.display = "none"); // Hide buttons
+                return;
+            }
+
+            // Handle guess response
+            if (data.error) {
+                // Display an error message if the guess is invalid
+                output.innerHTML = `<span class="error">${data.error}</span>`;
+            } else if (data.message) {
+                // Display a success message if the game is completed
+                output.innerHTML = `<span class="success">${data.message}</span>`;
+            } else {
+                // Display the results of the guess
+                output.innerHTML = `
+                    <p><strong>Guess:</strong> ${data.guess}</p>
+                    <p><strong>Bulls:</strong> ${data.bulls}</p>
+                    <p><strong>Cows:</strong> ${data.cows}</p>
+                    <p><strong>Attempts:</strong> ${data.attempts}</p>
+                    <p><strong>Remaining Possibilities:</strong> ${data.possibilities_count}</p>
+                    <p><strong>Entropy:</strong> ${data.entropy}</p>
+                    <p><strong>Mutual Info:</strong> ${data.mutual_information}</p>
+                `;
+            }
+
+            // Update history table with the latest guess and results
+            if (data.history) {
+                const newRow = `
+                    <tr>
+                        <td>${data.history[data.history.length - 1].guess}</td>
+                        <td>${data.history[data.history.length - 1].bulls}</td>
+                        <td>${data.history[data.history.length - 1].cows}</td>
+                        <td>${data.history[data.history.length - 1].entropy}</td>
+                        <td>${data.history[data.history.length - 1].mutual_information}</td>
+                    </tr>
+                `;
+                // Add the new row to the top of the table
+                historyTable.innerHTML = `
+                    <tr>
+                        <th>Guess</th>
+                        <th>Bulls</th>
+                        <th>Cows</th>
+                        <th>Entropy</th>
+                        <th>Mutual Info</th>
+                    </tr>
+                ` + newRow + historyTable.innerHTML;
+            }
+
+            // Clear the input field after a guess
+            if (action === "guess") guessInput.value = "";
+        }
+    </script>
+</head>
+<body>
+    <header>
+        <h1>Bulls and Cows</h1>
+        <p>Can you guess the secret 4-digit number? Each digit must be unique!</p>
+        <p>Cows - Number of correct digits at wrong position</p>
+        <p>Bulls - Number of correct digits at correct position</p>
+    </header>
+    <main>
+        <!-- Game Form Section -->
+        <section class="game-form">
+            <div class="form-wrapper">
+                <input type="text" id="guess" maxlength="4" placeholder="Enter your guess">
+                <div class="button-group">
+                    <!-- Submit button for making guesses -->
+                    <button onclick="submitGuess()">Submit</button>
+                    <!-- Replay button to reset the game -->
+                    <button class="replay-btn" onclick="submitGuess('replay')">Replay</button>
+                    <!-- Exit button to end the game -->
+                    <button class="exit-btn" onclick="submitGuess('exit')">Exit</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Game Output Section -->
+        <section class="game-output">
+            <!-- Output area to display results or messages -->
+            <div id="output" class="output"></div>
+        </section>
+
+        <!-- History Section -->
+        <section class="game-history">
+            <h2>Attempt History</h2>
+            <!-- Table to display the history of guesses -->
+            <table id="history-table">
+                <tr>
+                    <th>Guess</th>
+                    <th>Bulls</th>
+                    <th>Cows</th>
+                    <th>Entropy</th>
+                    <th>Mutual Info</th>
+                </tr>
+            </table>
+        </section>
+    </main>
+</body>
+</html>
